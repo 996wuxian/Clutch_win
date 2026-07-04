@@ -52,11 +52,9 @@ import {
 } from './services/workflowAgentSteps';
 import { isClutchAgentType, agentTypeFromAgent, agentTypeLabel, isCliAgentType } from './services/agentTypes';
 import {
-  filterAgentsForTerminalWorkspace,
   filterCliAgents,
   isTerminalCapableAgentType,
   loadWorkspaceViewMode,
-  resolveDefaultTerminalAgent,
   saveWorkspaceViewMode,
   type WorkspaceViewMode,
 } from './services/workspaceViewMode';
@@ -432,15 +430,6 @@ function MainLayout() {
   );
   const hasCliAgents = cliAgents.length > 0;
 
-  const activateTerminalSession = useCallback(() => {
-    const agent = resolveDefaultTerminalAgent(configuredAgents);
-    if (!agent) return;
-    setSelectedAgentId(agent.id);
-    localStorage.setItem('clutch_active_agent_id', agent.id);
-    saveLastCliAgentId(agent.id);
-    setInputValue(formatInputMention(getAgentDisplayName(agent)));
-  }, [configuredAgents]);
-
   const leaveTerminalSession = useCallback(async () => {
     await clutchStore.closeAllPtySessions();
     await clutchStore.detachInteractivePty();
@@ -449,9 +438,9 @@ function MainLayout() {
   const promptLeaveTerminal = useCallback((onProceed: () => void) => {
     setPromptModal({
       isOpen: true,
-      title: t('Leave terminal mode?'),
+      title: t('Close terminal sessions?'),
       message: t(
-        'Leaving terminal mode will end the current session and keep only handoff and dispatch records. Continue?',
+        'Starting another chat or opening another history item will close active terminal lanes and keep only handoff and dispatch records. Continue?',
       ),
       hasInput: false,
       onConfirm: () => {
@@ -467,10 +456,7 @@ function MainLayout() {
   const handleWorkspaceViewModeChange = useCallback((mode: WorkspaceViewMode) => {
     setWorkspaceViewMode(mode);
     saveWorkspaceViewMode(mode);
-    if (mode === 'terminal') {
-      activateTerminalSession();
-    }
-  }, [activateTerminalSession]);
+  }, []);
 
   const isPlainLlmFooterEarly = !selectedWorkflowId && !clutchState.workflow_id;
 
@@ -480,14 +466,12 @@ function MainLayout() {
     if (workspaceViewMode !== 'terminal' || !isPlainLlmFooterEarly || configuredAgents.length === 0) return;
     if (prevSessionRunIdForTerminalRef.current === sessionRunId) return;
     prevSessionRunIdForTerminalRef.current = sessionRunId;
-    activateTerminalSession();
-  }, [sessionRunId, workspaceViewMode, isPlainLlmFooterEarly, configuredAgents, activateTerminalSession]);
+  }, [sessionRunId, workspaceViewMode, isPlainLlmFooterEarly, configuredAgents]);
 
   const syncSelectedAgentFromMention = useCallback((agentId: string | null) => {
     if (!agentId) return;
     const agent = configuredAgents.find((item) => item.id === agentId);
     if (!agent) return;
-    if (workspaceViewMode === 'terminal' && !isCliAgentType(agentTypeFromAgent(agent))) return;
     if (agent.id === selectedAgentId) return;
     setSelectedAgentId(agent.id);
     localStorage.setItem('clutch_active_agent_id', agent.id);
@@ -499,12 +483,8 @@ function MainLayout() {
   const selectedAgent = configuredAgents.find((agent) => agent.id === selectedAgentId);
   const selectedAgentName = getAgentDisplayName(selectedAgent);
   const isPlainLlmFooter = !selectedWorkflowId && !clutchState.workflow_id;
-  const hideFooterSessionControls = isPlainLlmFooter && workspaceViewMode === 'terminal';
-  const footerSelectableAgents = useMemo((): Agent[] => (
-    isPlainLlmFooter && workspaceViewMode === 'terminal'
-      ? filterAgentsForTerminalWorkspace(configuredAgents, 'terminal', agentTypeFromAgent) as Agent[]
-      : configuredAgents
-  ), [configuredAgents, isPlainLlmFooter, workspaceViewMode]);
+  const hideFooterSessionControls = false;
+  const footerSelectableAgents = useMemo((): Agent[] => configuredAgents, [configuredAgents]);
   const mentionableAgents = useMemo(
     () => footerSelectableAgents.map((agent) => {
       const agentType = agentTypeFromAgent(agent);

@@ -28,6 +28,14 @@
 
 ## Recent Sessions
 
+## 2026-07-05 会话（个人主用分支 Terminal Focus 改造）
+
+- **分支** `clutch_win_wuxian` 作为 wuxian 日常主用产品分支继续分化；本次不改 `win` 贡献分支。
+- **产品调整** 将硬切换的 `Chat mode / Terminal mode` 改为同一会话里的 `Conversation / Terminal focus`，Terminal 不再被视为另一个任务模式。
+- **实现** Terminal Focus 打开时仍保留 Chat 上下文和主 `ChatInputBar`；`OrchestratorBar` 移入终端聚焦面板并使用独立输入态；进入 Terminal Focus 不再强制切默认 CLI Agent，也不再把底部 Agent 选择过滤为 CLI-only。
+- **文档** 更新 `docs/PRODUCT_INTRO.md` 与 `memory/DECISIONS.md`，记录 Terminal 作为聚焦视图而非独立模式的产品决策。
+- **验证** `pnpm --filter @clutch/desktop build` 通过；`pnpm --filter @clutch/desktop test` 17 files / 125 tests 通过。仍有既有 `LanguageContext.tsx` duplicate key warning 与 chunk size warning。
+
 ## 2026-07-04 会话（#30 merge + 平台 chrome 拆分）
 
 - **#30** — 已通过 GitHub merge 进 `dev`（@996wuxian）；Windows interactive PTY（WinPTY）、字体偏好恢复、跨平台 `tauri:dev` launcher

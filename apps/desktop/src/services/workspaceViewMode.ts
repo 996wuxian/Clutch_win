@@ -56,14 +56,13 @@ export function isTerminalCapableEngineHint(engineHint: string): boolean {
   return resolveCliToolFromEngineHint(engineHint) !== null;
 }
 
-/** When terminal workspace mode is active, only CLI agents are selectable in the footer. */
+/** Terminal focus is a view, not a separate task mode; the main footer keeps all agents. */
 export function filterAgentsForTerminalWorkspace<T extends { agentType?: string; aiEngine?: string }>(
   agents: T[],
-  mode: WorkspaceViewMode,
-  resolveType: (agent: T) => string,
+  _mode: WorkspaceViewMode,
+  _resolveType: (agent: T) => string,
 ): T[] {
-  if (mode !== 'terminal') return agents;
-  return agents.filter((agent) => isCliAgentType(resolveType(agent)));
+  return agents;
 }
 
 export function filterCliAgents(agents: Agent[]): Agent[] {

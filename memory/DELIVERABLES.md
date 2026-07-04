@@ -30,6 +30,21 @@ _（当前无进行中代码 Task。）_
 
 ## Recently Completed
 
+### 个人主用分支 Terminal Focus 改造 ✅
+- **日期：** 2026-07-05
+- **Commit：** `3936a11` — `feat(ui): unify chat with terminal focus`
+- **Verification：** `pnpm --filter @clutch/desktop build` → passed；`pnpm --filter @clutch/desktop test` → 17 files / 125 tests passed；仍有既有 `LanguageContext.tsx` duplicate key warning 与 chunk size warning
+- **证据：** `—`
+- **交付文件：**
+  - `apps/desktop/src/App.tsx` — 移除 Terminal Focus 对主 Agent 与底部 Agent 列表的强制 CLI-only 副作用
+  - `apps/desktop/src/components/ChatFeed.tsx` — Terminal 从替换式模式改为同一会话内聚焦面板，保留 Chat 上下文和主输入
+  - `apps/desktop/src/components/LanguageContext.tsx` — 更新 Conversation / Terminal Focus 相关文案
+  - `apps/desktop/src/services/workspaceViewMode.ts` — 将内部 view mode 的产品文案转为 focus 语义
+  - `apps/desktop/src/services/workspaceViewMode.test.ts` — 更新 workspace view mode 文案测试
+  - `docs/PRODUCT_INTRO.md` — 同步 Chat + Terminal 统一会话说明
+  - `memory/DECISIONS.md` — 记录 Terminal Focus 产品决策
+  - `memory/PROGRESS.md` / `memory/DELIVERABLES.md` — 记录本次交付与验证
+
 ### upstream 首页图标同步 ✅
 - **日期：** 2026-07-03
 - **Commit：** `9a982f4` — `fix(ui): sync workflow sidebar icon from upstream`

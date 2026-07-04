@@ -56,7 +56,7 @@ describe('workspaceViewMode', () => {
     expect(resolveCliToolFromEngineHint('MiMo-V2.5 Free')).toBeNull();
   });
 
-  it('filters footer agents to CLI types only in terminal mode', async () => {
+  it('keeps all footer agents selectable in terminal focus', async () => {
     vi.resetModules();
     const { filterAgentsForTerminalWorkspace } = await import('./workspaceViewMode');
     const agents = [
@@ -66,9 +66,6 @@ describe('workspaceViewMode', () => {
     ];
     const resolve = (agent: { agentType?: string }) => agent.agentType ?? '';
     expect(filterAgentsForTerminalWorkspace(agents, 'chat', resolve)).toHaveLength(3);
-    expect(filterAgentsForTerminalWorkspace(agents, 'terminal', resolve)).toEqual([
-      { id: '1', agentType: 'claude-cli' },
-      { id: '2', agentType: 'codex-cli' },
-    ]);
+    expect(filterAgentsForTerminalWorkspace(agents, 'terminal', resolve)).toEqual(agents);
   });
 });

@@ -381,6 +381,7 @@
   4. **首期范围**：Single Agent plain chat；工作流 session 禁用切换。
   5. **PTY 事件**：`pty_output` / `pty_input` / `pty_resize` / `pty_attach` / `pty_detach` / `pty_session_status`（附加 WS 通道，不改现有 `state_patch` / `message`）。
 - **证据**：`experiments/tui_embed_poc/RESULTS.md`（bash smoke Go）；产品实现 `ChatFeed` + `ChatTerminalView` + `interactive_pty_runtime.py`。
+- **2026-07-05 主用分支修订（`clutch_win_wuxian`）**：对 wuxian 日常主用版本，Chat / Terminal 不再作为两个任务模式长期演进；`terminal` 内部状态降级为 **Terminal Focus**，即同一会话中的终端聚焦视图。底部 `ChatInputBar` 保持主输入，Active Agent 下拉不再因 Terminal Focus 过滤为 CLI-only；Terminal Focus 内嵌 `OrchestratorBar` 只负责 lane dispatch / handoff。关闭 Terminal Focus 不应关闭 PTY lane；只有新建 chat 或切换历史会话等会话级操作才需要提示关闭活跃 terminal lanes。
 - **决策状态**：`已落地`
 
 ### D34 · Terminal 多 Agent 协作编排（PTY Lane + Handoff）（2026-07-02）
