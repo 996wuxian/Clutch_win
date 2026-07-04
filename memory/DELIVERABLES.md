@@ -32,7 +32,7 @@ _（当前无进行中代码 Task。）_
 
 ### 个人主用分支 Terminal Focus 改造 ✅
 - **日期：** 2026-07-05
-- **Commit：** `3936a11` — `feat(ui): unify chat with terminal focus`
+- **Commit：** `a533d5d` — `feat(ui): unify chat with terminal focus`
 - **Verification：** `pnpm --filter @clutch/desktop build` → passed；`pnpm --filter @clutch/desktop test` → 17 files / 125 tests passed；仍有既有 `LanguageContext.tsx` duplicate key warning 与 chunk size warning
 - **证据：** `—`
 - **交付文件：**
