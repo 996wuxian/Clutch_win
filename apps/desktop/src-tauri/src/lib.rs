@@ -7,6 +7,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Manager, RunEvent};
+#[cfg(not(debug_assertions))]
 use tauri_plugin_shell::ShellExt;
 
 #[cfg(debug_assertions)]
@@ -71,6 +72,7 @@ const SIDECAR_PORT: u16 = 8124;
 #[cfg(not(debug_assertions))]
 const SIDECAR_PORT: u16 = 8123;
 
+#[cfg(not(debug_assertions))]
 fn bundle_sidecar_path() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let macos_dir = exe.parent()?;
@@ -231,6 +233,7 @@ fn terminate_sidecar(app: &AppHandle) {
     }
 }
 
+#[cfg(target_os = "macos")]
 fn focus_main_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
@@ -242,6 +245,7 @@ fn focus_main_window(app: &AppHandle) {
 fn spawn_sidecar(app: &tauri::AppHandle, token: &str) -> Result<SidecarChild, String> {
     #[cfg(debug_assertions)]
     {
+        let _ = app;
         return spawn_dev_sidecar(token).map(SidecarChild::Dev);
     }
 
