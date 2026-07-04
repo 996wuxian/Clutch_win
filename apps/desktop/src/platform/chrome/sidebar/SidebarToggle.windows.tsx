@@ -14,7 +14,7 @@ export const SidebarToggleWindows: React.FC<SidebarToggleWindowsProps> = ({ isOp
     icon={isOpen ? 'chevron_left' : 'chevron_right'}
     title={isOpen ? t('Collapse Sidebar') : t('Expand Sidebar')}
     onClick={onToggle}
-    className={`absolute transition-all duration-300 ${isOpen ? '-right-3' : '-right-6'}`}
+    className="absolute -right-3 transition-all duration-300"
     style={{ top: CHROME_PANEL_TOGGLE_TOP_CSS }}
   />
 );
