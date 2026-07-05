@@ -28,6 +28,13 @@
 
 ## Recent Sessions
 
+## 2026-07-05 会话（Codex CLI 原生 resume 优化）
+
+- **原因** `codex-cli` plain chat 之前每轮都执行新的 `codex exec --json`，并把 system prompt + 历史对话重放给 Codex；用户实测同样短问在 Codex CLI 原生会话约 10s，在 Clutch 内约 17.5s。
+- **修复** 从 Codex JSONL `thread.started.thread_id` 提取真实 Codex thread id 并写入 `cli_session_id`；同一 Clutch 会话后续 Codex 轮次改走 `codex exec resume <thread_id> ... --json <当前输入>`，不再重复注入 system prompt 或完整历史。保留旧会话/低版本失败后的历史重放回退。
+- **Commit** `9eb7d59` — `fix(codex): resume native exec sessions`
+- **验证** `python -m uv run pytest tests/test_claude_hybrid_output_parser.py tests/test_agent_routing_smoke.py tests/test_ws_hybrid_execution.py` 31 passed / 1 warning。
+
 ## 2026-07-05 会话（开发态 Sidecar 自动重载）
 
 - **原因** `pnpm tauri:dev` 下前端 Vite 会 HMR，但 debug sidecar 由 Rust 直接启动 `uvicorn` 且未带 `--reload`，修改 Python 后端代码后必须重启 Tauri 才会生效。

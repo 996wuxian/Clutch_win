@@ -30,6 +30,19 @@ _（当前无进行中代码 Task。）_
 
 ## Recently Completed
 
+### Codex CLI 原生 resume 优化 ✅
+- **日期：** 2026-07-05
+- **Commit：** `9eb7d59` — `fix(codex): resume native exec sessions`
+- **Verification：** `python -m uv run pytest tests/test_claude_hybrid_output_parser.py tests/test_agent_routing_smoke.py tests/test_ws_hybrid_execution.py` → 31 passed / 1 warning
+- **证据：** `—`
+- **交付文件：**
+  - `services/orchestrator/src/claude_hybrid_output_parser.py` — 从 Codex JSONL 提取真实 `thread_id`
+  - `services/orchestrator/src/shell_exec_runtime.py` — Codex hybrid 续聊构造 `codex exec resume <thread_id>` 并回传真实会话 id
+  - `services/orchestrator/src/engine_router.py` — Codex 续聊只发送当前输入并跳过重复 system prompt / 历史重放
+  - `services/orchestrator/src/adapters/cli_adapter.py` — legacy subprocess 路径兼容 Windows `codex.exe` 与 Codex resume 命令
+  - `services/orchestrator/tests/test_agent_routing_smoke.py` / `services/orchestrator/tests/test_claude_hybrid_output_parser.py` — 覆盖 Codex resume 命令与 thread id 解析
+  - `docs/PRODUCT_INTRO.md` — 同步 Codex CLI session 恢复说明
+
 ### 开发态 Sidecar 自动重载 ✅
 - **日期：** 2026-07-05
 - **Commit：** `c808786` — `fix(dev): reload sidecar on python changes`
