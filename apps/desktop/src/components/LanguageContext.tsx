@@ -15,6 +15,8 @@ const LanguageContext = createContext<LanguageContextProps | undefined>(undefine
 const zhTranslations: Record<string, string> = {
   // Navigation & Sidebar
   "New Chat": "新建会话",
+  "Quick Chat": "快速会话",
+  "Task Orchestration": "任务编排",
   "Chat": "会话",
   "Agents": "智能体",
   "Flows": "流程",

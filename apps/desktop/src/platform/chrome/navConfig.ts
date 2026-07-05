@@ -4,7 +4,7 @@ import type { MainView } from '../../types';
 export const NAV_CONFIG = {
   chat: {
     icon: 'chat',
-    labelKey: 'New Chat',
+    labelKey: 'Quick Chat',
     shortLabelKey: 'Chat',
     testId: 'nav-new-chat',
     view: 'chat' as MainView,
