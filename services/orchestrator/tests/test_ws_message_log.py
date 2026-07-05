@@ -118,6 +118,45 @@ def test_ws_plain_chat_with_agent_id_injects_system_prompt(monkeypatch) -> None:
     assert reply.get("runtimeEngine") == "Test Model"
 
 
+def test_ws_cli_identity_question_uses_local_fast_path(monkeypatch) -> None:
+    agent = {
+        "id": "agent-codex-test",
+        "name": "Codex CLI",
+        "agentType": "codex-cli",
+        "markdownDoc": "# Codex CLI\n\nConnected CLI agent for Codex CLI.",
+    }
+    monkeypatch.setattr("src.models_config.get_router", lambda: _FakeRouter())
+    monkeypatch.setattr("src.agent_storage.get_agent_by_id", lambda _agent_id: agent)
+
+    def fail_route_engine(*_args, **_kwargs):
+        raise AssertionError("identity fast path should not call route_engine")
+
+    monkeypatch.setattr("src.engine_router.route_engine", fail_route_engine)
+
+    with client.websocket_connect("/ws/runs/run_codex_identity_fast_path") as ws:
+        ws.receive_json()
+        ws.send_json({"text": "@Codex CLI 你叫什么", "agent_id": "agent-codex-test"})
+        events = _collect_after_send(ws)
+
+    assert not [event for event in events if event.get("event") == "hybrid_execution"]
+    reply = next(
+        event["data"]["message"]
+        for event in events
+        if event.get("event") == "message"
+        and event["data"]["message"]["agent"] == "Codex CLI"
+    )
+    assert reply["text"] == "我叫 Codex CLI。"
+    assert reply.get("runtimeEngine") == "Codex CLI (Local)"
+    assert not reply.get("rawOutput")
+    idle_patch = next(
+        event["data"]["patch"]
+        for event in events
+        if event.get("event") == "state_patch"
+        and event.get("data", {}).get("patch", {}).get("status") == "idle"
+    )
+    assert any("local identity fast path for Codex CLI" in line for line in idle_patch["terminal_logs"])
+
+
 def test_ws_log_event_on_plain_chat(monkeypatch) -> None:
     monkeypatch.setattr("src.models_config.get_router", lambda: _FakeRouter())
 

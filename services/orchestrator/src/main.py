@@ -1245,6 +1245,58 @@ def _append_terminal_logs(
     return list(current_logs) + [stamp_log_line(line) for line in route_logs] + [stamped_tail]
 
 
+def _strip_leading_agent_mention(text: str, agent_name: str) -> str:
+    stripped = text.strip()
+    mention = f"@{agent_name}".lower()
+    if stripped.lower().startswith(mention):
+        return stripped[len(mention) :].strip()
+    return stripped
+
+
+def _local_cli_identity_reply(
+    *,
+    agent_name: str,
+    agent_type: str,
+    text: str,
+) -> str | None:
+    if not agent_type.endswith("-cli"):
+        return None
+    prompt = _strip_leading_agent_mention(text, agent_name)
+    compact = (
+        prompt.lower()
+        .replace(" ", "")
+        .replace("?", "")
+        .replace("？", "")
+        .replace("。", "")
+        .replace("！", "")
+        .replace("!", "")
+        .replace("，", "")
+        .replace(",", "")
+    )
+    if len(compact) > 24:
+        return None
+
+    if any(key in compact for key in ("你的模型", "你是什么模型", "模型是什么", "底层模型", "whatmodel")):
+        return (
+            f"我是 {agent_name}。底层模型由本机 {agent_name} CLI 的原生配置决定，"
+            "Clutch 不在模型管理里覆盖这个 CLI 的模型。"
+        )
+    if compact in {
+        "你叫什么",
+        "你叫啥",
+        "你的名字",
+        "你名字",
+        "叫什么",
+        "叫啥",
+        "whatisyourname",
+        "yourname",
+    }:
+        return f"我叫 {agent_name}。"
+    if compact in {"你是谁", "你是什么", "whoareyou"}:
+        return f"我是 {agent_name}，当前连接在你的 Clutch 工作区里。"
+    return None
+
+
 async def _llm_chat_reply(
     state: ClutchState,
     text: str,
@@ -1272,6 +1324,7 @@ async def _llm_chat_reply(
     router = get_router()
     from src.agent_type import agent_type_from_record, is_clutch_agent, resolve_model_for_agent
 
+    agent_type = agent_type_from_record(agent) if agent else "clutch"
     uses_clutch_model = is_clutch_agent(agent)
     model, resolved_model_id = resolve_model_for_agent(
         router,
@@ -1283,7 +1336,26 @@ async def _llm_chat_reply(
         model_api = getattr(model, "api_model", None) or runtime_model_name
     else:
         runtime_model_name = str(agent.get("name", reply_label)) if agent else reply_label
-        model_api = agent_type_from_record(agent) if agent else "cli"
+        model_api = agent_type
+
+    local_identity = _local_cli_identity_reply(
+        agent_name=reply_label,
+        agent_type=agent_type,
+        text=text,
+    )
+    if local_identity is not None:
+        return (
+            reply_label,
+            f"{runtime_model_name} (Local)",
+            local_identity,
+            [f"[CHAT] local identity fast path for {reply_label}"],
+            cli_session_id,
+            None,
+            [],
+            None,
+            None,
+            False,
+        )
     from src.adapters.ollama_adapter import model_supports_vision
 
     if uses_clutch_model:
