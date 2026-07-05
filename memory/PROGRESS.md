@@ -28,6 +28,13 @@
 
 ## Recent Sessions
 
+## 2026-07-05 会话（新建会话入口拆分）
+
+- **原因** 后端关键词判断 Quick / Project 只能止血，长期产品心智不正确；用户要求把“快速会话”和“任务编排”作为最前置入口区分。
+- **修复** 左侧栏展开态将单一 `New Chat` 拆成 `Quick Chat` 与 `Task Orchestration`。Quick Chat 创建普通 chat session 并保留默认文本模型重置；Task Orchestration 创建新 run 后进入 Workflows SOP / 编排准备态，不自动启动 workflow。折叠态与项目行内 `+` 保持轻入口语义，兼容既有 `nav-new-chat` E2E selector。
+- **Commit** `12f1a9a` — `feat(ui): split quick chat and task orchestration entry`
+- **验证** `pnpm --filter @clutch/desktop test` 17 files / 126 tests 通过；`pnpm --filter @clutch/desktop build` 通过。仍有既有 `LanguageContext.tsx` duplicate key warning 与 chunk size warning。
+
 ## 2026-07-05 会话（Codex Quick / Project 分流）
 
 - **原因** 用户实测 `@Codex CLI` 问“鲁迅和周树人是一个人吗”在 Clutch 内耗时 29.1s；审计显示 `workspace_lock_acquire_ms=0`、`cli_subprocess_ms=29016`、`input_tokens=10688`，确认主要慢点不是 UI/WebSocket/shell 池，而是 Codex headless 项目路径为常识短问加载项目上下文。

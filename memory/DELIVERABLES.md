@@ -30,6 +30,18 @@ _（当前无进行中代码 Task。）_
 
 ## Recently Completed
 
+### 新建会话入口拆分 ✅
+- **日期：** 2026-07-05
+- **Commit：** `12f1a9a` — `feat(ui): split quick chat and task orchestration entry`
+- **Verification：** `pnpm --filter @clutch/desktop test` → 17 files / 126 tests passed；`pnpm --filter @clutch/desktop build` → passed；仍有既有 `LanguageContext.tsx` duplicate key warning 与 chunk size warning
+- **证据：** `—`
+- **交付文件：**
+  - `apps/desktop/src/App.tsx` — 新建会话逻辑参数化，Quick 进普通 Chat，Task 进 Workflows SOP / 编排准备态
+  - `apps/desktop/src/sidebar.tsx` — 展开态新增 Quick Chat / Task Orchestration 两个入口，折叠态与项目 `+` 保持轻入口语义
+  - `apps/desktop/src/components/LanguageContext.tsx` — 补充入口文案翻译
+  - `apps/desktop/src/platform/chrome/navConfig.ts` — 折叠态 chat 文案改为 Quick Chat，保留旧 `nav-new-chat` test id
+  - `docs/PRODUCT_INTRO.md` — 同步新建会话双入口说明
+
 ### Codex Quick / Project 分流 ✅
 - **日期：** 2026-07-05
 - **Commit：** `9416bd5` — `fix(codex): split quick ask from project execution`
