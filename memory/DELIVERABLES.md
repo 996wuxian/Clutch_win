@@ -30,6 +30,17 @@ _（当前无进行中代码 Task。）_
 
 ## Recently Completed
 
+### 移除冗余任务编排入口 ✅
+- **日期：** 2026-07-05
+- **Commit：** `b825aff` — `fix(ui): remove redundant task orchestration entry`
+- **Verification：** `pnpm --filter @clutch/desktop test` → 17 files / 126 tests passed；`pnpm --filter @clutch/desktop build` → passed；仍有既有 `LanguageContext.tsx` duplicate key warning 与 chunk size warning
+- **证据：** Quick Chat 最新审计 `run_mr7gb9p4`：`codex_quick_runtime`，`duration_ms=18891`，`cli_subprocess_ms=18891`，`workspace_lock_acquire_ms=0`，命令为 `codex exec --json --ignore-rules --ephemeral`
+- **交付文件：**
+  - `apps/desktop/src/App.tsx` — 移除 task session 创建分支，Quick Chat 保持普通 chat 新建逻辑
+  - `apps/desktop/src/sidebar.tsx` — 移除 `Task Orchestration` 按钮，保留 Quick Chat 与 Workflows SOP 导航
+  - `apps/desktop/src/components/LanguageContext.tsx` — 移除未使用任务编排文案
+  - `docs/PRODUCT_INTRO.md` — 同步 Quick Chat / Workflows SOP 入口说明
+
 ### 新建会话入口拆分 ✅
 - **日期：** 2026-07-05
 - **Commit：** `12f1a9a` — `feat(ui): split quick chat and task orchestration entry`

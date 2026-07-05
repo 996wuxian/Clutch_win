@@ -28,6 +28,13 @@
 
 ## Recent Sessions
 
+## 2026-07-05 会话（移除冗余任务编排入口）
+
+- **原因** 已有独立 Workflows SOP 导航承接复杂任务编排，左侧栏再放 `Task Orchestration` 新建入口会重复且增加心智负担。
+- **修复** 移除展开态 `Task Orchestration` 按钮，恢复单一 Quick Chat 新建入口；复杂任务继续通过 Workflows SOP 进入。同步 `PRODUCT_INTRO.md`。Quick Chat 的 Codex 快速问答仍走真实 `codex exec --json --ignore-rules --ephemeral`，不注入项目 system prompt，不写项目 session。
+- **Commit** `b825aff` — `fix(ui): remove redundant task orchestration entry`
+- **验证** `pnpm --filter @clutch/desktop test` 17 files / 126 tests 通过；`pnpm --filter @clutch/desktop build` 通过。仍有既有 `LanguageContext.tsx` duplicate key warning 与 chunk size warning。
+
 ## 2026-07-05 会话（新建会话入口拆分）
 
 - **原因** 后端关键词判断 Quick / Project 只能止血，长期产品心智不正确；用户要求把“快速会话”和“任务编排”作为最前置入口区分。
