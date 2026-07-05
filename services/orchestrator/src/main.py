@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import uuid
 from collections.abc import Awaitable, Callable
 from copy import deepcopy
@@ -910,6 +911,15 @@ def _chat_time() -> str:
     return chat_time()
 
 
+def _format_execution_time(elapsed_seconds: float) -> str:
+    elapsed = max(0.0, elapsed_seconds)
+    if elapsed < 60:
+        return f"{max(elapsed, 0.1):.1f}s"
+    total_seconds = int(round(elapsed))
+    minutes, seconds = divmod(total_seconds, 60)
+    return f"{minutes}m {seconds:02d}s"
+
+
 def _chat_message(
     agent: str,
     text: str,
@@ -919,6 +929,7 @@ def _chat_message(
     runtime_engine: str | None = None,
     raw_output: str | None = None,
     output_events: list[dict[str, Any]] | None = None,
+    execution_time: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "id": msg_id or f"msg_{uuid.uuid4().hex[:8]}",
@@ -935,6 +946,8 @@ def _chat_message(
         payload["rawOutput"] = raw_output
     if output_events is not None:
         payload["outputEvents"] = output_events
+    if execution_time:
+        payload["executionTime"] = execution_time
     return payload
 
 
@@ -1635,6 +1648,7 @@ async def _handle_plain_chat_mcp_decision(
         "servers": pending.servers,
     }
 
+    turn_started = time.perf_counter()
     (
         model_name,
         runtime_engine,
@@ -1712,6 +1726,7 @@ async def _handle_plain_chat_mcp_decision(
         runtime_engine=runtime_engine,
         raw_output=raw_output,
         output_events=output_events,
+        execution_time=_format_execution_time(time.perf_counter() - turn_started),
     )
     log_line = f"[CHAT] {model_name} via {runtime_engine}: {len(reply_text)} chars"
     if not streamed_logs:
@@ -2105,6 +2120,7 @@ async def _handle_plain_chat(
 
     from src.hybrid_concurrency import HybridPlainChatRejected
 
+    turn_started = time.perf_counter()
     try:
         (
             model_name,
@@ -2223,6 +2239,7 @@ async def _handle_plain_chat(
         runtime_engine=runtime_engine,
         raw_output=raw_output,
         output_events=output_events,
+        execution_time=_format_execution_time(time.perf_counter() - turn_started),
     )
 
     hybrid_system_prompt: str | None = None
@@ -2563,6 +2580,7 @@ async def _handle_flow_refine_message(
                 messages=list(state["messages"]),
             )
 
+    turn_started = time.perf_counter()
     try:
         (
             model_name,
@@ -2641,6 +2659,7 @@ async def _handle_flow_refine_message(
         reply_text,
         runtime_engine=runtime_engine,
         msg_id=f"agent_{uuid.uuid4().hex[:8]}",
+        execution_time=_format_execution_time(time.perf_counter() - turn_started),
     )
     final_messages = list(state["messages"]) + [reply]
     final_patch: dict[str, Any] = {

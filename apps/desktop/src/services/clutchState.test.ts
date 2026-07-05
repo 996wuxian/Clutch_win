@@ -230,6 +230,14 @@ describe('mergeMessageFields', () => {
     const merged = mergeMessageFields(base, { ...base, rawOutput: undefined });
     expect(merged.rawOutput).toBe('raw-from-message');
   });
+
+  it('updates assistant execution time from incoming server messages', () => {
+    const merged = mergeMessageFields(
+      { ...base, executionTime: undefined },
+      { ...base, executionTime: '12.4s' },
+    );
+    expect(merged.executionTime).toBe('12.4s');
+  });
 });
 
 describe('preferRicherSessionPatch', () => {

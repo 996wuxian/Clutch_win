@@ -327,6 +327,10 @@ function replyRuntimeLabel(
   return runtimeEngine?.trim() || fallbackModelName || '—';
 }
 
+function executionTimeLabel(duration: string, t: (key: string) => string): string {
+  return `${t('Took')} ${duration}`;
+}
+
 const IMAGE_MARKER_RE = /\[image:\s*(data:image\/[^\]]+)\]\s*/gi;
 const VIDEO_MARKER_RE = /\[video:\s*((?:https?:\/\/|\/api\/)[^\]]+)\]\s*/gi;
 const MD_IMAGE_RE = /!\[([^\]]*)\]\(([^)]+)\)/g;
@@ -1350,14 +1354,19 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
                           </span>
                         </div>
                       )}
-                      {(msg.executionTime || msg.tokens) && (
-                        <div className="mt-3 pt-3 border-t border-outline-variant/10 flex gap-4 text-[9px] text-on-surface-variant/60 font-mono">
-                          {msg.executionTime && <span>{msg.executionTime}</span>}
-                          {msg.tokens && <span>{msg.tokens}</span>}
-                        </div>
-                      )}
                     </div>
                   )}
+                  {!isUser && (msg.executionTime || msg.tokens) ? (
+                    <div className="flex items-center gap-3 pl-1 text-[10px] leading-none text-on-surface-variant/60 font-mono">
+                      {msg.executionTime ? (
+                        <span className="inline-flex items-center gap-1">
+                          <LegacyIcon name="timer" className="text-[12px]" />
+                          {executionTimeLabel(msg.executionTime, t)}
+                        </span>
+                      ) : null}
+                      {msg.tokens ? <span>{msg.tokens}</span> : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>

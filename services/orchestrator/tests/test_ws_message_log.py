@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -64,6 +65,12 @@ def test_ws_plain_chat_without_workflow(monkeypatch) -> None:
     agents = {e["data"]["message"]["agent"] for e in message_events}
     assert agents == {"User", "Clutch Agent"}
     assert any("Echo: 你好 Clutch" in e["data"]["message"]["text"] for e in message_events)
+    user_message = next(e["data"]["message"] for e in message_events if e["data"]["message"]["agent"] == "User")
+    assistant_message = next(
+        e["data"]["message"] for e in message_events if e["data"]["message"]["agent"] == "Clutch Agent"
+    )
+    assert "executionTime" not in user_message
+    assert re.match(r"^\d+(?:\.\d)?s$|^\d+m \d{2}s$", assistant_message["executionTime"])
 
     patch_events = [e for e in events if e["event"] == "state_patch"]
     assert len(patch_events) == 2

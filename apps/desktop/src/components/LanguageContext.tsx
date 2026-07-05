@@ -107,6 +107,7 @@ const zhTranslations: Record<string, string> = {
   "Ask @Agent or describe your workflow...": "向 @Agent 提问，或描述工作流任务…",
   "Ask your AI Agent anything...": "向 AI 智能体提问…",
   "View execution details": "查看底层执行细节",
+  "Took": "耗时",
   "Shell command": "Shell 命令",
   "System prompt": "系统提示词",
   "Boundary marker": "边界标记",
