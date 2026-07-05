@@ -30,17 +30,6 @@ _（当前无进行中代码 Task。）_
 
 ## Recently Completed
 
-### CLI 身份短问本地 fast path ✅
-- **日期：** 2026-07-05
-- **Commit：** `7fb2884` — `fix(chat): answer cli identity prompts locally`
-- **Verification：** `python -m uv run pytest tests/test_ws_message_log.py tests/test_claude_hybrid_output_parser.py tests/test_agent_routing_smoke.py tests/test_ws_hybrid_execution.py` → 37 passed / 1 warning
-- **证据：** `—`
-- **交付文件：**
-  - `services/orchestrator/src/main.py` — 对 CLI Agent 身份/模型短问走本地 fast path，不启动底层 CLI
-  - `services/orchestrator/tests/test_ws_message_log.py` — 覆盖 `@Codex CLI 你叫什么` 不调用 `route_engine`
-  - `docs/PRODUCT_INTRO.md` — 同步 CLI 身份短问本地 fast path 说明
-  - `memory/PROGRESS.md` / `memory/DELIVERABLES.md` — 记录本次交付与验证
-
 ### Codex CLI 原生 resume 优化 ✅
 - **日期：** 2026-07-05
 - **Commit：** `9eb7d59` — `fix(codex): resume native exec sessions`
