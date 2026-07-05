@@ -1029,9 +1029,7 @@ function MainLayout() {
     }
   };
 
-  type NewSessionKind = 'quick' | 'task';
-
-  const handleNewSession = async (kind: NewSessionKind) => {
+  const handleNewChat = async () => {
     if (!workspace) {
       await handlePickWorkspace();
       return;
@@ -1045,12 +1043,10 @@ function MainLayout() {
       setHighlightedDispatchEntryId(null);
       setCurrentFlowName('');
       setSelectedWorkflowId(null);
-      if (kind === 'task') {
-        setIsMultiAgent(true);
-      } else if (workspaceViewMode !== 'terminal') {
+      if (workspaceViewMode !== 'terminal') {
         selectDefaultAgent();
       }
-      setView(kind === 'task' ? 'workflows' : 'chat');
+      setView('chat');
       setRightTab('overview');
       void (async () => {
         try {
@@ -1077,10 +1073,6 @@ function MainLayout() {
     }
     await startNewChat();
   };
-
-  const handleNewChat = async () => handleNewSession('quick');
-
-  const handleNewTaskSession = async () => handleNewSession('task');
 
   const applySelectedSession = async (session: SessionRecord) => {
     setLoadingSessionId(session.run_id);
@@ -1169,7 +1161,7 @@ function MainLayout() {
     if (workspaceId !== activeWorkspaceId) {
       await handleSelectWorkspace(workspaceId);
     }
-    await handleNewSession('quick');
+    await handleNewChat();
   };
 
   const handleDeleteWorkspace = (workspaceId: string) => {
@@ -1412,7 +1404,6 @@ function MainLayout() {
           activeFlow={currentFlowName}
           setActiveFlow={handleFlowSelect}
           onNewChat={() => { void handleNewChat(); }}
-          onNewTaskSession={() => { void handleNewTaskSession(); }}
           isOpenState={sidebarOpen}
           setIsOpenState={setSidebarOpen}
           isMultiAgent={isMultiAgent}

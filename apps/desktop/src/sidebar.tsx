@@ -23,7 +23,6 @@ interface SidebarProps {
   activeFlow: string;
   setActiveFlow: (flow: string) => void;
   onNewChat: () => void;
-  onNewTaskSession: () => void;
   isOpenState: boolean;
   setIsOpenState?: (open: boolean) => void;
   isMultiAgent?: boolean;
@@ -72,7 +71,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeFlow,
   setActiveFlow,
   onNewChat,
-  onNewTaskSession,
   isOpenState,
   setIsOpenState,
   isMultiAgent = true,
@@ -460,20 +458,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <LegacyIcon name={NAV_CONFIG.chat.icon} className="text-[17px] text-on-surface-variant group-hover:text-primary" />
             <span className="text-xs font-semibold tracking-wide">{t("Quick Chat")}</span>
-          </button>
-
-          <button
-            data-testid="nav-task-orchestration"
-            onClick={onNewTaskSession}
-            aria-label={t('Task Orchestration')}
-            className={`w-full flex items-center gap-2.5 p-2 rounded-lg border transition-[background-color,border-color,color,box-shadow] text-left group ${
-              currentView === 'workflows'
-                ? 'bg-surface-bright shadow-sm text-on-surface font-semibold border-outline-variant/60'
-                : 'border-transparent text-on-surface-variant hover:bg-surface-bright hover:text-on-surface'
-            }`}
-          >
-            <LegacyIcon name={NAV_CONFIG.workflows.icon} className="text-[17px] text-on-surface-variant group-hover:text-primary" />
-            <span className="text-xs font-semibold tracking-wide">{t("Task Orchestration")}</span>
           </button>
 
           <button
