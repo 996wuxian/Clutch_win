@@ -28,6 +28,13 @@
 
 ## Recent Sessions
 
+## 2026-07-05 会话（AI 回复耗时显示）
+
+- **分支** `clutch_win_wuxian` 个人主用产品分支继续改进日常使用可观测性。
+- **实现** 后端在 plain chat / MCP 审批继续回复 / workflow refine 回复完成后写入 `ChatMessage.executionTime`；前端将耗时显示在 AI 回复气泡下方，用户消息不显示耗时。
+- **Commit** `3206f8e` — `feat(chat): show assistant reply elapsed time`
+- **验证** `python -m uv run pytest tests/test_ws_message_log.py tests/test_ws_hybrid_execution.py` 6 passed / 1 warning；`pnpm --filter @clutch/desktop test` 17 files / 126 tests 通过；`pnpm --filter @clutch/desktop build` 通过。直接 `uv run ...` 在当前 PowerShell PATH 下不可用，使用 `python -m uv` 替代。既有 `LanguageContext.tsx` duplicate key warning 与 chunk size warning 仍未处理。
+
 ## 2026-07-05 会话（个人主用分支 Terminal Focus 改造）
 
 - **分支** `clutch_win_wuxian` 作为 wuxian 日常主用产品分支继续分化；本次不改 `win` 贡献分支。

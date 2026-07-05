@@ -30,6 +30,19 @@ _（当前无进行中代码 Task。）_
 
 ## Recently Completed
 
+### AI 回复耗时显示 ✅
+- **日期：** 2026-07-05
+- **Commit：** `3206f8e` — `feat(chat): show assistant reply elapsed time`
+- **Verification：** `python -m uv run pytest tests/test_ws_message_log.py tests/test_ws_hybrid_execution.py` → 6 passed / 1 warning；`pnpm --filter @clutch/desktop test` → 17 files / 126 tests passed；`pnpm --filter @clutch/desktop build` → passed；直接 `uv run ...` 在当前 PowerShell PATH 下不可用，已使用 `python -m uv` 替代；仍有既有 `LanguageContext.tsx` duplicate key warning 与 chunk size warning
+- **证据：** `—`
+- **交付文件：**
+  - `services/orchestrator/src/main.py` — 为 AI 回复记录并持久化 `executionTime`
+  - `services/orchestrator/tests/test_ws_message_log.py` — 验证 AI 回复包含耗时且用户消息不包含
+  - `apps/desktop/src/components/ChatFeed.tsx` — 在 AI 回复气泡下方显示耗时 metadata
+  - `apps/desktop/src/components/LanguageContext.tsx` — 增加耗时标签翻译
+  - `apps/desktop/src/services/clutchState.test.ts` — 覆盖消息合并时耗时字段保留/更新
+  - `docs/PRODUCT_INTRO.md` — 同步可观测性说明
+
 ### 个人主用分支 Terminal Focus 改造 ✅
 - **日期：** 2026-07-05
 - **Commit：** `a533d5d` — `feat(ui): unify chat with terminal focus`
