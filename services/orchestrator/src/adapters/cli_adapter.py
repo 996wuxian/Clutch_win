@@ -119,7 +119,7 @@ def _is_agy_binary(binary: str) -> bool:
 
 
 def _is_codex_binary(binary: str) -> bool:
-    return os.path.basename(binary) == "codex"
+    return os.path.basename(binary).lower() in {"codex", "codex.exe"}
 
 
 _RIVET_BINARY_NAMES: frozenset[str] = frozenset({"rivet", "t9"})
@@ -343,7 +343,10 @@ def compose_cli_argv(
 ) -> list[str]:
     """Build argv for a non-interactive CLI turn (subcommand/flags before prompt)."""
     cmd: list[str] = [binary]
-    if extra_args:
+    codex_resume = _is_codex_binary(binary) and resume_session_id and extra_args and extra_args[0] == "exec"
+    if codex_resume:
+        cmd.extend(["exec", "resume", *extra_args[1:]])
+    elif extra_args:
         cmd.extend(extra_args)
 
     if conversation_mode == "resume_or_new":
@@ -359,6 +362,9 @@ def compose_cli_argv(
             cmd += ["--conversation", resume_session_id]
     elif conversation_mode == "history_only":
         pass
+
+    if codex_resume:
+        cmd.append(resume_session_id)
 
     if prompt_flag:
         cmd += [prompt_flag, effective_prompt]

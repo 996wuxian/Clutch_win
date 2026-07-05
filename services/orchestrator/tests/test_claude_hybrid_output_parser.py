@@ -6,6 +6,7 @@ from src.claude_hybrid_output_parser import (
     ClaudeHybridOutputParser,
     extract_cli_issue_message,
     extract_codex_assistant_output,
+    extract_codex_thread_id,
     extract_tty_cli_output,
     marker_completed_in_output,
     parse_codex_jsonl_output,
@@ -242,6 +243,19 @@ def test_parse_codex_jsonl_output_extracts_agent_message() -> None:
         '{"type":"turn.completed","usage":{"output_tokens":1}}\n'
     )
     assert parse_codex_jsonl_output(raw) == "PONG"
+
+
+def test_extract_codex_thread_id_from_jsonl() -> None:
+    raw = (
+        'CLUTCH_P="hello"; codex exec --json "$CLUTCH_P"\n'
+        '{"type":"thread.started","thread_id":"019f3086-93c9-7d43-8fd6-8250a791ccbf"}\n'
+        '{"type":"item.completed","item":{"type":"agent_message","text":"PONG"}}\n'
+        "__CLUTCH_DONE_codex1__\n"
+    )
+    assert (
+        extract_codex_thread_id(raw, marker="__CLUTCH_DONE_codex1__")
+        == "019f3086-93c9-7d43-8fd6-8250a791ccbf"
+    )
 
 
 def test_extract_codex_assistant_output_from_hybrid_jsonl() -> None:

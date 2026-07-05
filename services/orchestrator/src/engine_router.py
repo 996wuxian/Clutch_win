@@ -235,6 +235,18 @@ def _effective_prepend_system_prompt(
     return True
 
 
+def _resume_prompt_for_cli(
+    *,
+    agent_type: str,
+    conversation_mode: str,
+    prompt: str,
+    history: list[dict[str, str]] | None,
+) -> str:
+    if agent_type == "codex-cli" and conversation_mode == "history_only":
+        return prompt
+    return _cli_prompt_from_history(prompt, history)
+
+
 def _ensure_cli_output(
     output: str,
     *,
@@ -392,7 +404,12 @@ def _route_generic_cli_hybrid(
             )
         if cli_session_id:
             _emit_log(logs, on_log, f"[HYBRID] resume {cli_session_id} in shell {run_id}")
-            resume_prompt = _cli_prompt_from_history(prompt, history)
+            resume_prompt = _resume_prompt_for_cli(
+                agent_type=agent_type,
+                conversation_mode=conversation_mode,
+                prompt=prompt,
+                history=history,
+            )
             turn = run_generic_cli_turn(
                 session,
                 agent_type=agent_type.replace("-cli", ""),
@@ -401,7 +418,11 @@ def _route_generic_cli_hybrid(
                 timeout_s=timeout,
                 conversation_mode=conversation_mode,
                 extra_args=extra_args,
-                prepend_system_prompt=prepend_system_prompt,
+                prepend_system_prompt=_effective_prepend_system_prompt(
+                    prepend_system_prompt,
+                    conversation_mode=conversation_mode,
+                    cli_session_id=cli_session_id,
+                ),
                 cli_session_id=cli_session_id,
                 resume_session_id=cli_session_id,
                 context_prefix=context_prefix,
@@ -411,17 +432,18 @@ def _route_generic_cli_hybrid(
                 supports_append_system_prompt=supports_append_system_prompt,
                 close_stdin=close_stdin,
             )
+            resolved_cli_session_id = getattr(turn, "cli_session_id", None) or cli_session_id
             _persist_hybrid_turn_snapshot(
                 run_id=run_id,
                 workspace_path=workspace_path,
-                cli_session_id=cli_session_id,
+                cli_session_id=resolved_cli_session_id,
                 prompt=prompt,
             )
             return EngineResult(
                 engine=f"{engine_title} (Hybrid)",
                 output=turn.stdout,
                 logs=logs + turn.logs,
-                cli_session_id=cli_session_id,
+                cli_session_id=resolved_cli_session_id,
                 raw_output=turn.raw_output,
                 output_events=turn.output_events,
                 shell_recovered=shell_recovered,
@@ -448,17 +470,18 @@ def _route_generic_cli_hybrid(
             supports_append_system_prompt=supports_append_system_prompt,
             close_stdin=close_stdin,
         )
+        resolved_cli_session_id = getattr(turn, "cli_session_id", None) or new_session_id
         _persist_hybrid_turn_snapshot(
             run_id=run_id,
             workspace_path=workspace_path,
-            cli_session_id=new_session_id,
+            cli_session_id=resolved_cli_session_id,
             prompt=prompt,
         )
         return EngineResult(
             engine=f"{engine_title} (Hybrid)",
             output=turn.stdout,
             logs=logs + turn.logs,
-            cli_session_id=new_session_id,
+            cli_session_id=resolved_cli_session_id,
             raw_output=turn.raw_output,
             output_events=turn.output_events,
             shell_recovered=shell_recovered,
@@ -530,7 +553,9 @@ def _route_generic_cli_legacy(
             )
 
     try:
-        if cli_session_id and conversation_mode in ("none", "history_only"):
+        if cli_session_id and conversation_mode in ("none", "history_only") and not (
+            agent_type == "codex-cli" and conversation_mode == "history_only"
+        ):
             replay_prompt = _cli_prompt_from_history(prompt, history)
             _emit_log(logs, on_log, f"Continuing {engine_title} with history replay.")
             output = _invoke_cli(
@@ -557,7 +582,12 @@ def _route_generic_cli_legacy(
 
         if cli_session_id:
             _emit_log(logs, on_log, f"Resuming {engine_title} session {cli_session_id}.")
-            resume_prompt = _cli_prompt_from_history(prompt, history)
+            resume_prompt = _resume_prompt_for_cli(
+                agent_type=agent_type,
+                conversation_mode=conversation_mode,
+                prompt=prompt,
+                history=history,
+            )
             output = _invoke_cli(
                 cli_prompt=resume_prompt,
                 cli_system_prompt=None,

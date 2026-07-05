@@ -458,6 +458,33 @@ def parse_codex_jsonl_output(text: str) -> str | None:
     return messages[-1] if messages else None
 
 
+def extract_codex_thread_id(raw: str, *, marker: str | None = None) -> str | None:
+    """Extract the Codex JSONL thread id emitted by `codex exec --json`."""
+    normalized = _erase_backspaces(strip_ansi(raw)).replace("\r", "")
+    body = normalized
+    if marker and marker in normalized:
+        end = _last_standalone_marker_index(normalized, marker)
+        if end < 0:
+            end = normalized.rfind(marker)
+        body = _strip_shell_preamble(normalized[:end], marker=marker) if end >= 0 else normalized
+
+    for source in (body, normalized):
+        for line in source.splitlines():
+            clean = strip_ansi(line).strip()
+            if not clean.startswith("{"):
+                continue
+            try:
+                obj = json.loads(clean)
+            except json.JSONDecodeError:
+                continue
+            if obj.get("type") != "thread.started":
+                continue
+            thread_id = str(obj.get("thread_id") or "").strip()
+            if thread_id:
+                return thread_id
+    return None
+
+
 def extract_codex_assistant_output(raw: str, *, marker: str | None = None) -> str:
     """Parse Codex hybrid or subprocess output (JSONL preferred, TUI fallback)."""
     normalized = _erase_backspaces(strip_ansi(raw)).replace("\r", "")

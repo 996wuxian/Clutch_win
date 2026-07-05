@@ -152,6 +152,33 @@ def test_shell_cmd_codex_uses_exec_positional_prompt() -> None:
     assert "You are Codex" in cmd
 
 
+def test_shell_cmd_codex_resume_uses_native_exec_resume() -> None:
+    from src.engine_router import CLI_ROUTING_CONFIGS
+    from src.shell_exec_runtime import _build_generic_cli_shell_cmd
+
+    config = CLI_ROUTING_CONFIGS["codex-cli"]
+    cmd = _build_generic_cli_shell_cmd(
+        binary="codex",
+        prompt="你叫什么",
+        marker="__DONE__",
+        resume_session_id="019f3086-93c9-7d43-8fd6-8250a791ccbf",
+        system_prompt="You are Codex, the active agent in the user's Clutch workspace.",
+        conversation_mode=config["conversation_mode"],
+        extra_args=config["extra_args"],
+        prepend_system_prompt=False,
+        prompt_flag=config["prompt_flag"],
+        supports_append_system_prompt=config["supports_append_system_prompt"],
+        close_stdin=config.get("close_stdin", False),
+    )
+    assert "codex exec resume" in cmd
+    assert "--json" in cmd
+    assert "019f3086-93c9-7d43-8fd6-8250a791ccbf" in cmd
+    assert '"$CLUTCH_P"' in cmd
+    assert "User Request:" not in cmd
+    assert "You are Codex" not in cmd
+    assert "--conversation" not in cmd
+
+
 def test_shell_cmd_no_append_system_prompt_for_agy() -> None:
     from src.shell_exec_runtime import _build_generic_cli_shell_cmd
 

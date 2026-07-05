@@ -19,6 +19,7 @@ from src.claude_hybrid_output_parser import (
     ClaudeHybridOutputParser,
     extract_cli_issue_message,
     extract_codex_assistant_output,
+    extract_codex_thread_id,
     marker_completed_in_output,
     parse_hybrid_claude_output,
     strip_ansi,
@@ -93,6 +94,18 @@ def extract_claude_output(plain: str, *, marker: str) -> str:
 def _is_codex_binary(binary: str) -> bool:
     name = binary.replace("\\", "/").rsplit("/", 1)[-1].lower()
     return name in {"codex", "codex.exe"}
+
+
+def _codex_exec_args_for_turn(
+    extra_args: list[str] | None,
+    *,
+    resume_session_id: str | None,
+) -> list[str] | None:
+    if not extra_args or extra_args[0] != "exec":
+        return None
+    if not resume_session_id:
+        return list(extra_args)
+    return ["exec", "resume", *extra_args[1:]]
 
 
 def _build_claude_shell_cmd(
@@ -203,12 +216,13 @@ def _execute_hybrid_turn(
             if use_codex_parser:
                 assistant = extract_codex_assistant_output(raw, marker=marker)
                 if assistant:
+                    detected_cli_session_id = extract_codex_thread_id(raw, marker=marker) or cli_session_id
                     result = "ok"
                     message = f"hybrid {agent} turn ok marker={marker}"
                     return ShellExecResult(
                         stdout=assistant,
                         logs=[f"[HYBRID] {agent} exec in shell session {run_id}"],
-                        cli_session_id=cli_session_id,
+                        cli_session_id=detected_cli_session_id,
                         raw_output=raw,
                         output_events=[
                             {"type": "assistant", "visible": True, "content": assistant},
@@ -354,8 +368,16 @@ def _build_generic_cli_shell_cmd(
     if system_prompt and prepend_system_prompt:
         effective = f"{system_prompt}\n\nUser Request:\n{prompt}"
 
+    codex_resume_session_id = resume_session_id if _is_codex_binary(binary) else None
+    codex_extra_args = _codex_exec_args_for_turn(
+        extra_args,
+        resume_session_id=codex_resume_session_id,
+    )
+
     parts: list[str] = [_shell_command_token(binary)]
-    if extra_args:
+    if codex_extra_args is not None:
+        parts.extend(codex_extra_args)
+    elif extra_args:
         parts.extend(extra_args)
 
     if conversation_mode == "resume_or_new":
@@ -369,6 +391,9 @@ def _build_generic_cli_shell_cmd(
     elif conversation_mode == "none":
         if resume_session_id:
             parts.append(f"--conversation {resume_session_id}")
+
+    if codex_resume_session_id:
+        parts.append(_shell_quote(codex_resume_session_id))
 
     if prompt_flag:
         parts.append(f'{prompt_flag} "$CLUTCH_P"')
@@ -524,7 +549,7 @@ def run_generic_cli_turn(
     return ShellExecResult(
         stdout=turn.stdout,
         logs=turn.logs,
-        cli_session_id=conv_id,
+        cli_session_id=turn.cli_session_id or conv_id,
         raw_output=turn.raw_output,
         output_events=turn.output_events,
     )
