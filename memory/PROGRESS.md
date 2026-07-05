@@ -28,6 +28,14 @@
 
 ## Recent Sessions
 
+## 2026-07-05 会话（Codex plain chat 直接 subprocess）
+
+- **原因** 用户指出短问不应走“本地假回复”绕过模型，核心问题是 Clutch 调 Codex 的真实链路比原生 Codex CLI 慢太多；上一轮已撤回身份短问 fast path。
+- **修复** `codex-cli` plain chat 改为直接调用 `codex exec --json` / `codex exec resume <thread_id>`，绕过 Clutch hybrid shell/PTY 包装；继续使用 Codex 原生模型调用、真实 `thread_id` 恢复和 workspace CLI 锁。新增 Codex usage 解析，并在 hybrid audit 中记录 `workspace_lock_acquire_ms`、`cli_subprocess_ms`、`total_ms` 与 token usage，便于后续定位慢在 Clutch 包装还是 Codex CLI/模型。
+- **Commit** `e7ffcd8` — `fix(codex): route plain chat through direct subprocess`
+- **验证** `python -m uv run pytest tests/test_claude_hybrid_output_parser.py tests/test_agent_routing_smoke.py tests/test_ws_hybrid_execution.py` 34 passed / 1 warning；`python -m uv run pytest` 639 passed / 9 skipped / 1 warning。`bash scripts/verify.sh` 未运行成功：当前 PowerShell PATH 无 `bash`。
+- **下次优先** 用实际 Clutch UI 再测 `@Codex CLI 你叫什么` 与同 workspace 直接 `codex exec --json` 的差距；若仍显著慢，进入 Phase 2 评估 Codex `exec-server` / `app-server` / 交互 PTY 常驻路径。
+
 ## 2026-07-05 会话（Codex CLI 原生 resume 优化）
 
 - **原因** `codex-cli` plain chat 之前每轮都执行新的 `codex exec --json`，并把 system prompt + 历史对话重放给 Codex；用户实测同样短问在 Codex CLI 原生会话约 10s，在 Clutch 内约 17.5s。

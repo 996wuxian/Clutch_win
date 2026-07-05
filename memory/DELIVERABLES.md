@@ -30,6 +30,19 @@ _（当前无进行中代码 Task。）_
 
 ## Recently Completed
 
+### Codex plain chat 直接 subprocess ✅
+- **日期：** 2026-07-05
+- **Commit：** `e7ffcd8` — `fix(codex): route plain chat through direct subprocess`
+- **Verification：** `python -m uv run pytest tests/test_claude_hybrid_output_parser.py tests/test_agent_routing_smoke.py tests/test_ws_hybrid_execution.py` → 34 passed / 1 warning；`python -m uv run pytest` → 639 passed / 9 skipped / 1 warning；`bash scripts/verify.sh` → 未运行成功，当前 PowerShell PATH 无 `bash`
+- **证据：** `—`
+- **交付文件：**
+  - `services/orchestrator/src/engine_router.py` — Codex plain chat 走直接 subprocess，保留原生 `thread_id` resume、workspace CLI 锁和失败回退
+  - `services/orchestrator/src/claude_hybrid_output_parser.py` — 解析 Codex JSONL `turn.completed.usage`
+  - `services/orchestrator/src/hybrid_audit_log.py` — 审计日志支持 phase durations 与 token usage
+  - `services/orchestrator/tests/test_agent_routing_smoke.py` — 覆盖直接 subprocess 首轮与 `codex exec resume <thread_id>` 续轮
+  - `services/orchestrator/tests/test_claude_hybrid_output_parser.py` — 覆盖 Codex usage 解析
+  - `docs/PRODUCT_INTRO.md` — 同步 Codex plain chat 直接 subprocess 与 usage 审计说明
+
 ### Codex CLI 原生 resume 优化 ✅
 - **日期：** 2026-07-05
 - **Commit：** `9eb7d59` — `fix(codex): resume native exec sessions`
