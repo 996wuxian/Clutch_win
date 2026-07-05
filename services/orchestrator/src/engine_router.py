@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -325,6 +326,177 @@ def _persist_hybrid_turn_snapshot(
         cli_session_id=cli_session_id,
         task_summary=prompt,
     )
+
+
+def _summarize_cli_argv(argv: list[str]) -> str:
+    if not argv:
+        return ""
+    if len(argv) <= 1:
+        return argv[0]
+    return " ".join([*argv[:-1], "[prompt redacted]"])
+
+
+def _route_codex_subprocess_plain_chat(
+    *,
+    binary_name: str,
+    extra_args: list[str],
+    run_id: str,
+    workspace_path: str | None,
+    prompt: str,
+    system_prompt: str | None,
+    history: list[dict[str, str]] | None,
+    cli_session_id: str | None,
+    cli_binary: str | None,
+    logs: list[str],
+    on_log: Callable[[str], None] | None,
+    prompt_flag: str,
+    supports_append_system_prompt: bool,
+) -> EngineResult:
+    from src.adapters.cli_adapter import compose_cli_argv, run_cli
+    from src.claude_hybrid_output_parser import (
+        extract_codex_assistant_output,
+        extract_codex_thread_id,
+        extract_codex_usage,
+    )
+    from src.hybrid_audit_log import (
+        append_hybrid_turn_audit,
+        build_turn_audit_line,
+    )
+    from src.workspace_cli_lock import workspace_cli_turn
+
+    import os
+
+    timeout = float(os.environ.get("CLUTCH_CLAUDE_CLI_TIMEOUT", "600"))
+    binary = cli_binary or binary_name
+    lock_workspace = workspace_path or os.getcwd()
+    turn_id = uuid.uuid4().hex[:8]
+    started = time.monotonic()
+    command_summary = ""
+    resolved_cli_session_id = cli_session_id
+    raw_output = ""
+    usage: dict[str, int] = {}
+    result_status = "error"
+    message = ""
+    lock_requested = started
+    lock_acquired: float | None = None
+    cli_subprocess_ms = 0
+
+    def _run_once(*, resume_session_id: str | None) -> tuple[str, str | None, str, dict[str, int], list[dict[str, object]]]:
+        nonlocal cli_subprocess_ms
+        effective_prompt = (
+            _resume_prompt_for_cli(
+                agent_type="codex-cli",
+                conversation_mode="history_only",
+                prompt=prompt,
+                history=history,
+            )
+            if resume_session_id
+            else _cli_prompt_from_history(prompt, history)
+        )
+        prepend_system = _effective_prepend_system_prompt(
+            True,
+            conversation_mode="history_only",
+            cli_session_id=resume_session_id,
+        )
+        argv = compose_cli_argv(
+            binary=binary,
+            effective_prompt=(
+                f"{system_prompt}\n\nUser Request:\n{effective_prompt}"
+                if system_prompt and (prepend_system or not supports_append_system_prompt)
+                else effective_prompt
+            ),
+            prompt_flag=prompt_flag,
+            conversation_mode="history_only",
+            resume_session_id=resume_session_id,
+            prepend_system_prompt=prepend_system,
+            system_prompt=system_prompt,
+            supports_append_system_prompt=supports_append_system_prompt,
+            extra_args=extra_args,
+        )
+        nonlocal command_summary
+        command_summary = _summarize_cli_argv(argv)
+        _emit_log(logs, on_log, f"[CODEX] direct subprocess {'resume ' + resume_session_id if resume_session_id else 'new turn'}")
+        _emit_log(logs, on_log, f"[CODEX] executing `{argv[0]}` directly (timeout {timeout:g}s)")
+        cli_started = time.monotonic()
+        try:
+            completed = run_cli(argv, cwd=workspace_path, timeout=timeout)
+        finally:
+            cli_subprocess_ms += int((time.monotonic() - cli_started) * 1000)
+        combined_raw = completed.stdout
+        if completed.stderr.strip():
+            combined_raw = f"{combined_raw}\n{completed.stderr}".strip()
+        assistant = extract_codex_assistant_output(combined_raw)
+        thread_id = extract_codex_thread_id(combined_raw)
+        token_usage = extract_codex_usage(combined_raw)
+        events: list[dict[str, object]] = []
+        if assistant:
+            events.append({"type": "assistant", "visible": True, "content": assistant})
+        return assistant, thread_id, combined_raw, token_usage, events
+
+    try:
+        with workspace_cli_turn(
+            lock_workspace,
+            timeout_s=timeout,
+            on_waiting=lambda: _emit_log(logs, on_log, f"[CODEX] acquiring workspace CLI lock for {lock_workspace}"),
+        ):
+            lock_acquired = time.monotonic()
+            try:
+                output, thread_id, raw_output, usage, output_events = _run_once(
+                    resume_session_id=cli_session_id,
+                )
+            except Exception as exc:
+                if not cli_session_id:
+                    raise
+                _emit_log(logs, on_log, f"[CODEX] direct resume failed ({exc}); starting a new exec turn.")
+                output, thread_id, raw_output, usage, output_events = _run_once(
+                    resume_session_id=None,
+                )
+            if not output.strip():
+                raise RuntimeError("Codex CLI returned empty output.")
+            resolved_cli_session_id = thread_id or cli_session_id
+            result_status = "ok"
+            message = "codex direct subprocess turn ok"
+            _persist_hybrid_turn_snapshot(
+                run_id=run_id,
+                workspace_path=lock_workspace,
+                cli_session_id=resolved_cli_session_id,
+                prompt=prompt,
+            )
+            return EngineResult(
+                engine="Codex CLI (Direct)",
+                output=output,
+                logs=logs + [f"[CODEX] direct subprocess completed in {int((time.monotonic() - started) * 1000)}ms"],
+                cli_session_id=resolved_cli_session_id,
+                raw_output=raw_output,
+                output_events=output_events,
+            )
+    except Exception as exc:
+        message = str(exc)
+        raise
+    finally:
+        duration_ms = int((time.monotonic() - started) * 1000)
+        lock_acquire_ms = int(((lock_acquired or time.monotonic()) - lock_requested) * 1000)
+        append_hybrid_turn_audit(
+            build_turn_audit_line(
+                run_id=run_id,
+                turn_id=turn_id,
+                marker="",
+                duration_ms=duration_ms,
+                result=result_status,  # type: ignore[arg-type]
+                cli_session_id=resolved_cli_session_id,
+                agent="codex",
+                command_summary=command_summary,
+                node_id="plain_chat",
+                message=message or f"codex direct subprocess turn {result_status}",
+                source="codex_direct_runtime",
+                phase_durations_ms={
+                    "workspace_lock_acquire_ms": lock_acquire_ms,
+                    "cli_subprocess_ms": cli_subprocess_ms,
+                    "total_ms": duration_ms,
+                },
+                token_usage=usage or None,
+            )
+        )
 
 
 def _resolve_agent_type(agent: dict[str, Any] | None, fallback_tool: str | None) -> str:
@@ -845,6 +1017,23 @@ def _route_engine_raw(
             prompt_flag=config.get("prompt_flag", "-p"),
             supports_append_system_prompt=config.get("supports_append_system_prompt", True),
         )
+
+        if agent_type == "codex-cli" and source == "plain_chat":
+            return _route_codex_subprocess_plain_chat(
+                binary_name=config["binary_name"],
+                extra_args=effective_extra_args,
+                run_id=run_id or "",
+                workspace_path=workspace_path,
+                prompt=prompt,
+                system_prompt=system_prompt,
+                history=history,
+                cli_session_id=cli_session_id,
+                cli_binary=cli_binary,
+                logs=logs,
+                on_log=on_log,
+                prompt_flag=config.get("prompt_flag", "-p"),
+                supports_append_system_prompt=config.get("supports_append_system_prompt", True),
+            )
 
         if source == "flow" and agent_type == "claude-cli":
             from src.shell_exec_runtime import hybrid_pty_shell_command_risky

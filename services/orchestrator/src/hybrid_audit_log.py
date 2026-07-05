@@ -29,6 +29,8 @@ class HybridTurnAuditLine:
     level: str
     message: str
     timestamp: str
+    phase_durations_ms: dict[str, int] | None = None
+    token_usage: dict[str, int] | None = None
 
 
 def get_hybrid_audit_dir() -> Path:
@@ -72,6 +74,8 @@ def build_turn_audit_line(
     timestamp: datetime | None = None,
     source: str = "shell_exec_runtime",
     level: str | None = None,
+    phase_durations_ms: dict[str, int] | None = None,
+    token_usage: dict[str, int] | None = None,
 ) -> HybridTurnAuditLine:
     ts = timestamp or datetime.now(UTC)
     resolved_level = level or ("error" if result not in ("ok",) else "info")
@@ -91,6 +95,8 @@ def build_turn_audit_line(
         level=resolved_level,
         message=message,
         timestamp=ts.isoformat(),
+        phase_durations_ms=phase_durations_ms,
+        token_usage=token_usage,
     )
 
 

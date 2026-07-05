@@ -7,6 +7,7 @@ from src.claude_hybrid_output_parser import (
     extract_cli_issue_message,
     extract_codex_assistant_output,
     extract_codex_thread_id,
+    extract_codex_usage,
     extract_tty_cli_output,
     marker_completed_in_output,
     parse_codex_jsonl_output,
@@ -256,6 +257,20 @@ def test_extract_codex_thread_id_from_jsonl() -> None:
         extract_codex_thread_id(raw, marker="__CLUTCH_DONE_codex1__")
         == "019f3086-93c9-7d43-8fd6-8250a791ccbf"
     )
+
+
+def test_extract_codex_usage_from_jsonl() -> None:
+    raw = (
+        '{"type":"thread.started","thread_id":"019f3086-93c9-7d43-8fd6-8250a791ccbf"}\n'
+        '{"type":"turn.completed","usage":{"input_tokens":10680,"cached_input_tokens":8576,'
+        '"output_tokens":10,"reasoning_output_tokens":0}}\n'
+    )
+    assert extract_codex_usage(raw) == {
+        "input_tokens": 10680,
+        "cached_input_tokens": 8576,
+        "output_tokens": 10,
+        "reasoning_output_tokens": 0,
+    }
 
 
 def test_extract_codex_assistant_output_from_hybrid_jsonl() -> None:

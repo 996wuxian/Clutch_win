@@ -231,3 +231,119 @@ def test_route_engine_antigravity_does_not_inject_clutch_model(monkeypatch) -> N
     assert res.output == "agy reply"
     extra = captured.get("extra_args") or []
     assert "--model" not in extra
+
+
+def test_route_engine_codex_plain_chat_uses_direct_subprocess(monkeypatch) -> None:
+    from src.adapters.cli_adapter import CliResult
+
+    monkeypatch.setattr(
+        "src.engine_router.list_agents",
+        lambda: [
+            {
+                "id": "agent-codex",
+                "name": "Codex CLI",
+                "agentType": "codex-cli",
+            }
+        ],
+    )
+    monkeypatch.setattr("src.engine_router.tool_available_for_routing", lambda tool_id: tool_id == "codex-cli")
+    monkeypatch.setattr("src.engine_router.resolve_tool_binary", lambda _tool_id: "codex")
+    monkeypatch.setattr("src.engine_router.get_workspace", lambda: {"workspace_path": "/workspace"})
+    monkeypatch.setattr("src.engine_router._persist_hybrid_turn_snapshot", lambda **_kwargs: None)
+    monkeypatch.setattr("src.hybrid_audit_log.append_hybrid_turn_audit", lambda *_args, **_kwargs: None)
+
+    def fail_hybrid(**_kwargs):
+        raise AssertionError("codex plain chat should bypass hybrid shell")
+
+    monkeypatch.setattr("src.engine_router.try_shell_exec_hybrid", fail_hybrid)
+
+    captured: dict[str, object] = {}
+
+    def fake_run_cli(command, *, cwd, timeout, on_line=None):
+        captured["command"] = command
+        captured["cwd"] = cwd
+        return CliResult(
+            command=list(command),
+            exit_code=0,
+            stdout=(
+                '{"type":"thread.started","thread_id":"thread-codex-1"}\n'
+                '{"type":"item.completed","item":{"type":"agent_message","text":"direct ok"}}\n'
+                '{"type":"turn.completed","usage":{"input_tokens":10,"cached_input_tokens":0,"output_tokens":2}}\n'
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("src.adapters.cli_adapter.run_cli", fake_run_cli)
+
+    result = route_engine(
+        agent_name="Codex CLI",
+        prompt="你叫什么",
+        run_id="run-codex-direct",
+        source="plain_chat",
+    )
+
+    assert result.engine == "Codex CLI (Direct)"
+    assert result.output == "direct ok"
+    assert result.cli_session_id == "thread-codex-1"
+    command = captured["command"]
+    assert command[:2] == ["codex", "exec"]
+    assert "resume" not in command
+    assert captured["cwd"] == "/workspace"
+
+
+def test_route_engine_codex_plain_chat_direct_subprocess_resumes_thread(monkeypatch) -> None:
+    from src.adapters.cli_adapter import CliResult
+
+    monkeypatch.setattr(
+        "src.engine_router.list_agents",
+        lambda: [
+            {
+                "id": "agent-codex",
+                "name": "Codex CLI",
+                "agentType": "codex-cli",
+            }
+        ],
+    )
+    monkeypatch.setattr("src.engine_router.tool_available_for_routing", lambda tool_id: tool_id == "codex-cli")
+    monkeypatch.setattr("src.engine_router.resolve_tool_binary", lambda _tool_id: "codex")
+    monkeypatch.setattr("src.engine_router.get_workspace", lambda: {"workspace_path": "/workspace"})
+    monkeypatch.setattr("src.engine_router._persist_hybrid_turn_snapshot", lambda **_kwargs: None)
+    monkeypatch.setattr("src.hybrid_audit_log.append_hybrid_turn_audit", lambda *_args, **_kwargs: None)
+
+    captured: dict[str, object] = {}
+
+    def fake_run_cli(command, *, cwd, timeout, on_line=None):
+        captured["command"] = command
+        return CliResult(
+            command=list(command),
+            exit_code=0,
+            stdout='{"type":"item.completed","item":{"type":"agent_message","text":"resumed ok"}}\n',
+            stderr="",
+        )
+
+    monkeypatch.setattr("src.adapters.cli_adapter.run_cli", fake_run_cli)
+
+    result = route_engine(
+        agent_name="Codex CLI",
+        prompt="继续",
+        cli_session_id="thread-codex-1",
+        run_id="run-codex-direct",
+        source="plain_chat",
+        history=[
+            {"role": "user", "content": "之前的问题"},
+            {"role": "assistant", "content": "之前的回答"},
+        ],
+    )
+
+    assert result.output == "resumed ok"
+    assert result.cli_session_id == "thread-codex-1"
+    assert captured["command"] == [
+        "codex",
+        "exec",
+        "resume",
+        "--skip-git-repo-check",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--json",
+        "thread-codex-1",
+        "继续",
+    ]

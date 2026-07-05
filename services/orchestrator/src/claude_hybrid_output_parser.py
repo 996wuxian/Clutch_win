@@ -485,6 +485,40 @@ def extract_codex_thread_id(raw: str, *, marker: str | None = None) -> str | Non
     return None
 
 
+def extract_codex_usage(raw: str, *, marker: str | None = None) -> dict[str, int]:
+    """Extract token usage from Codex JSONL `turn.completed` events."""
+    normalized = _erase_backspaces(strip_ansi(raw)).replace("\r", "")
+    body = normalized
+    if marker and marker in normalized:
+        end = _last_standalone_marker_index(normalized, marker)
+        if end < 0:
+            end = normalized.rfind(marker)
+        body = _strip_shell_preamble(normalized[:end], marker=marker) if end >= 0 else normalized
+
+    usage: dict[str, int] = {}
+    for source in (body, normalized):
+        for line in source.splitlines():
+            clean = strip_ansi(line).strip()
+            if not clean.startswith("{"):
+                continue
+            try:
+                obj = json.loads(clean)
+            except json.JSONDecodeError:
+                continue
+            if obj.get("type") != "turn.completed":
+                continue
+            raw_usage = obj.get("usage")
+            if not isinstance(raw_usage, dict):
+                continue
+            for key in ("input_tokens", "cached_input_tokens", "output_tokens", "reasoning_output_tokens"):
+                value = raw_usage.get(key)
+                if isinstance(value, int):
+                    usage[key] = value
+            if usage:
+                return usage
+    return usage
+
+
 def extract_codex_assistant_output(raw: str, *, marker: str | None = None) -> str:
     """Parse Codex hybrid or subprocess output (JSONL preferred, TUI fallback)."""
     normalized = _erase_backspaces(strip_ansi(raw)).replace("\r", "")
