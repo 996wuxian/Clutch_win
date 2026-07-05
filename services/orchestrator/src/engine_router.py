@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import uuid
+import tempfile
 import time
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -336,6 +337,128 @@ def _summarize_cli_argv(argv: list[str]) -> str:
     return " ".join([*argv[:-1], "[prompt redacted]"])
 
 
+_CODEX_QUICK_FORCE_TERMS = (
+    "quick ask",
+    "quick mode",
+    "轻问答",
+    "快速问答",
+)
+
+_CODEX_PROJECT_FORCE_TERMS = (
+    "project agent",
+    "project mode",
+    "项目模式",
+    "项目 agent",
+    "代码任务",
+)
+
+_CODEX_PROJECT_INTENT_TERMS = (
+    "代码",
+    "仓库",
+    "项目",
+    "文件",
+    "目录",
+    "路径",
+    "分支",
+    "提交",
+    "commit",
+    "branch",
+    "repo",
+    "repository",
+    "workspace",
+    "diff",
+    "patch",
+    "pr",
+    "issue",
+    "bug",
+    "报错",
+    "错误",
+    "异常",
+    "日志",
+    "终端",
+    "命令",
+    "运行",
+    "测试",
+    "构建",
+    "安装",
+    "修复",
+    "实现",
+    "新增",
+    "删除",
+    "重构",
+    "改一下",
+    "改造",
+    "优化这个",
+    "readme",
+    "package.json",
+    "cargo",
+    "pytest",
+    "pnpm",
+    "npm",
+    "git",
+)
+
+_CODEX_PROJECT_PATH_MARKERS = (
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".rs",
+    ".md",
+    ".json",
+    ".toml",
+    ".yaml",
+    ".yml",
+    "\\",
+    "/",
+)
+
+
+def _should_route_codex_quick_chat(
+    *,
+    prompt: str,
+    history: list[dict[str, str]] | None,
+    cli_session_id: str | None,
+    system_prompt: str | None,
+) -> bool:
+    """Use a lightweight real Codex call for non-project plain chat."""
+    del history, system_prompt
+    text = prompt.strip().lower()
+    if not text:
+        return False
+    if any(term in text for term in _CODEX_QUICK_FORCE_TERMS):
+        return True
+    if cli_session_id:
+        return False
+    if any(term in text for term in _CODEX_PROJECT_FORCE_TERMS):
+        return False
+    if any(term in text for term in _CODEX_PROJECT_INTENT_TERMS):
+        return False
+    if any(marker in text for marker in _CODEX_PROJECT_PATH_MARKERS):
+        return False
+    if "data:image/" in text:
+        return False
+    return len(text) <= 240
+
+
+def _quick_codex_history(history: list[dict[str, str]] | None) -> list[dict[str, str]]:
+    if not history:
+        return []
+    turns: list[dict[str, str]] = []
+    for item in history:
+        role = item.get("role")
+        if role not in {"user", "assistant"}:
+            continue
+        content = str(item.get("content", "")).strip()
+        if not content:
+            continue
+        if len(content) > 800:
+            content = content[:800] + "..."
+        turns.append({"role": role, "content": content})
+    return turns[-4:]
+
+
 def _route_codex_subprocess_plain_chat(
     *,
     binary_name: str,
@@ -368,7 +491,21 @@ def _route_codex_subprocess_plain_chat(
 
     timeout = float(os.environ.get("CLUTCH_CLAUDE_CLI_TIMEOUT", "600"))
     binary = cli_binary or binary_name
-    lock_workspace = workspace_path or os.getcwd()
+    quick_chat = _should_route_codex_quick_chat(
+        prompt=prompt,
+        history=history,
+        cli_session_id=cli_session_id,
+        system_prompt=system_prompt,
+    )
+    execution_workspace = tempfile.gettempdir() if quick_chat else workspace_path
+    lock_workspace = execution_workspace or os.getcwd()
+    effective_extra_args = (
+        [*extra_args, "--ignore-rules", "--ephemeral"]
+        if quick_chat
+        else extra_args
+    )
+    effective_history = _quick_codex_history(history) if quick_chat else history
+    effective_system_prompt = None if quick_chat else system_prompt
     turn_id = uuid.uuid4().hex[:8]
     started = time.monotonic()
     command_summary = ""
@@ -388,38 +525,39 @@ def _route_codex_subprocess_plain_chat(
                 agent_type="codex-cli",
                 conversation_mode="history_only",
                 prompt=prompt,
-                history=history,
+                history=effective_history,
             )
             if resume_session_id
-            else _cli_prompt_from_history(prompt, history)
+            else _cli_prompt_from_history(prompt, effective_history)
         )
         prepend_system = _effective_prepend_system_prompt(
-            True,
+            not quick_chat,
             conversation_mode="history_only",
             cli_session_id=resume_session_id,
         )
         argv = compose_cli_argv(
             binary=binary,
             effective_prompt=(
-                f"{system_prompt}\n\nUser Request:\n{effective_prompt}"
-                if system_prompt and (prepend_system or not supports_append_system_prompt)
+                f"{effective_system_prompt}\n\nUser Request:\n{effective_prompt}"
+                if effective_system_prompt and (prepend_system or not supports_append_system_prompt)
                 else effective_prompt
             ),
             prompt_flag=prompt_flag,
             conversation_mode="history_only",
             resume_session_id=resume_session_id,
             prepend_system_prompt=prepend_system,
-            system_prompt=system_prompt,
+            system_prompt=effective_system_prompt,
             supports_append_system_prompt=supports_append_system_prompt,
-            extra_args=extra_args,
+            extra_args=effective_extra_args,
         )
         nonlocal command_summary
         command_summary = _summarize_cli_argv(argv)
-        _emit_log(logs, on_log, f"[CODEX] direct subprocess {'resume ' + resume_session_id if resume_session_id else 'new turn'}")
+        mode = "quick ask" if quick_chat else "direct subprocess"
+        _emit_log(logs, on_log, f"[CODEX] {mode} {'resume ' + resume_session_id if resume_session_id else 'new turn'}")
         _emit_log(logs, on_log, f"[CODEX] executing `{argv[0]}` directly (timeout {timeout:g}s)")
         cli_started = time.monotonic()
         try:
-            completed = run_cli(argv, cwd=workspace_path, timeout=timeout)
+            completed = run_cli(argv, cwd=execution_workspace, timeout=timeout)
         finally:
             cli_subprocess_ms += int((time.monotonic() - cli_started) * 1000)
         combined_raw = completed.stdout
@@ -454,18 +592,21 @@ def _route_codex_subprocess_plain_chat(
             if not output.strip():
                 raise RuntimeError("Codex CLI returned empty output.")
             resolved_cli_session_id = thread_id or cli_session_id
+            if quick_chat:
+                resolved_cli_session_id = None
             result_status = "ok"
-            message = "codex direct subprocess turn ok"
-            _persist_hybrid_turn_snapshot(
-                run_id=run_id,
-                workspace_path=lock_workspace,
-                cli_session_id=resolved_cli_session_id,
-                prompt=prompt,
-            )
+            message = "codex quick ask turn ok" if quick_chat else "codex direct subprocess turn ok"
+            if not quick_chat:
+                _persist_hybrid_turn_snapshot(
+                    run_id=run_id,
+                    workspace_path=lock_workspace,
+                    cli_session_id=resolved_cli_session_id,
+                    prompt=prompt,
+                )
             return EngineResult(
-                engine="Codex CLI (Direct)",
+                engine="Codex CLI (Quick)" if quick_chat else "Codex CLI (Direct)",
                 output=output,
-                logs=logs + [f"[CODEX] direct subprocess completed in {int((time.monotonic() - started) * 1000)}ms"],
+                logs=logs + [f"[CODEX] {'quick ask' if quick_chat else 'direct subprocess'} completed in {int((time.monotonic() - started) * 1000)}ms"],
                 cli_session_id=resolved_cli_session_id,
                 raw_output=raw_output,
                 output_events=output_events,
@@ -488,7 +629,7 @@ def _route_codex_subprocess_plain_chat(
                 command_summary=command_summary,
                 node_id="plain_chat",
                 message=message or f"codex direct subprocess turn {result_status}",
-                source="codex_direct_runtime",
+                source="codex_quick_runtime" if quick_chat else "codex_direct_runtime",
                 phase_durations_ms={
                     "workspace_lock_acquire_ms": lock_acquire_ms,
                     "cli_subprocess_ms": cli_subprocess_ms,

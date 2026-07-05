@@ -233,7 +233,7 @@ def test_route_engine_antigravity_does_not_inject_clutch_model(monkeypatch) -> N
     assert "--model" not in extra
 
 
-def test_route_engine_codex_plain_chat_uses_direct_subprocess(monkeypatch) -> None:
+def test_route_engine_codex_plain_chat_uses_quick_subprocess_for_light_questions(monkeypatch) -> None:
     from src.adapters.cli_adapter import CliResult
 
     monkeypatch.setattr(
@@ -277,17 +277,72 @@ def test_route_engine_codex_plain_chat_uses_direct_subprocess(monkeypatch) -> No
 
     result = route_engine(
         agent_name="Codex CLI",
-        prompt="你叫什么",
+        prompt="鲁迅和周树人是一个人吗",
+        run_id="run-codex-direct",
+        source="plain_chat",
+    )
+
+    assert result.engine == "Codex CLI (Quick)"
+    assert result.output == "direct ok"
+    assert result.cli_session_id is None
+    command = captured["command"]
+    assert command[:2] == ["codex", "exec"]
+    assert "resume" not in command
+    assert "--ignore-rules" in command
+    assert "--ephemeral" in command
+    assert captured["cwd"] != "/workspace"
+
+
+def test_route_engine_codex_plain_chat_uses_project_subprocess_for_code_tasks(monkeypatch) -> None:
+    from src.adapters.cli_adapter import CliResult
+
+    monkeypatch.setattr(
+        "src.engine_router.list_agents",
+        lambda: [
+            {
+                "id": "agent-codex",
+                "name": "Codex CLI",
+                "agentType": "codex-cli",
+            }
+        ],
+    )
+    monkeypatch.setattr("src.engine_router.tool_available_for_routing", lambda tool_id: tool_id == "codex-cli")
+    monkeypatch.setattr("src.engine_router.resolve_tool_binary", lambda _tool_id: "codex")
+    monkeypatch.setattr("src.engine_router.get_workspace", lambda: {"workspace_path": "/workspace"})
+    monkeypatch.setattr("src.engine_router._persist_hybrid_turn_snapshot", lambda **_kwargs: None)
+    monkeypatch.setattr("src.hybrid_audit_log.append_hybrid_turn_audit", lambda *_args, **_kwargs: None)
+
+    captured: dict[str, object] = {}
+
+    def fake_run_cli(command, *, cwd, timeout, on_line=None):
+        captured["command"] = command
+        captured["cwd"] = cwd
+        return CliResult(
+            command=list(command),
+            exit_code=0,
+            stdout=(
+                '{"type":"thread.started","thread_id":"thread-codex-project"}\n'
+                '{"type":"item.completed","item":{"type":"agent_message","text":"project ok"}}\n'
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("src.adapters.cli_adapter.run_cli", fake_run_cli)
+
+    result = route_engine(
+        agent_name="Codex CLI",
+        prompt="帮我修改这个项目的 README.md",
         run_id="run-codex-direct",
         source="plain_chat",
     )
 
     assert result.engine == "Codex CLI (Direct)"
-    assert result.output == "direct ok"
-    assert result.cli_session_id == "thread-codex-1"
+    assert result.output == "project ok"
+    assert result.cli_session_id == "thread-codex-project"
     command = captured["command"]
     assert command[:2] == ["codex", "exec"]
-    assert "resume" not in command
+    assert "--ignore-rules" not in command
+    assert "--ephemeral" not in command
     assert captured["cwd"] == "/workspace"
 
 
