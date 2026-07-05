@@ -30,6 +30,16 @@ _（当前无进行中代码 Task。）_
 
 ## Recently Completed
 
+### Codex Quick / Project 分流 ✅
+- **日期：** 2026-07-05
+- **Commit：** `9416bd5` — `fix(codex): split quick ask from project execution`
+- **Verification：** `python -m uv run pytest tests/test_agent_routing_smoke.py tests/test_claude_hybrid_output_parser.py tests/test_ws_hybrid_execution.py` → 35 passed / 1 warning；`python -m uv run pytest` → 640 passed / 9 skipped / 1 warning
+- **证据：** 手工直接 Quick 同形态命令约 23.95s，`input_tokens=10084`；`--ignore-user-config` 试验超过 120s 未返回，已结束残留进程，未纳入默认路径
+- **交付文件：**
+  - `services/orchestrator/src/engine_router.py` — Codex plain chat 自动分流 Quick / Project，Quick 使用临时目录、`--ignore-rules --ephemeral` 且不写项目 session
+  - `services/orchestrator/tests/test_agent_routing_smoke.py` — 覆盖常识短问走 Quick、代码任务走 Project、项目续轮 resume 不变
+  - `docs/PRODUCT_INTRO.md` — 同步 Codex Quick / Project 分流说明
+
 ### Codex plain chat 直接 subprocess ✅
 - **日期：** 2026-07-05
 - **Commit：** `e7ffcd8` — `fix(codex): route plain chat through direct subprocess`
@@ -194,3 +204,4 @@ _（当前无进行中代码 Task。）_
 | PROGRESS 会话 | [`archive/PROGRESS-2026-Q2.md`](./archive/PROGRESS-2026-Q2.md) · [`archive/PROGRESS-2026-Q3.md`](./archive/PROGRESS-2026-Q3.md) |
 
 _v1.0.0–v1.0.2 已发布交付见 `archive/DELIVERABLES-OSR.md` 及 Git tag / `CHANGELOG.md`。_
+

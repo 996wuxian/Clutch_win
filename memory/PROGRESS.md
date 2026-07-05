@@ -28,6 +28,14 @@
 
 ## Recent Sessions
 
+## 2026-07-05 会话（Codex Quick / Project 分流）
+
+- **原因** 用户实测 `@Codex CLI` 问“鲁迅和周树人是一个人吗”在 Clutch 内耗时 29.1s；审计显示 `workspace_lock_acquire_ms=0`、`cli_subprocess_ms=29016`、`input_tokens=10688`，确认主要慢点不是 UI/WebSocket/shell 池，而是 Codex headless 项目路径为常识短问加载项目上下文。
+- **修复** Codex plain chat 增加 Quick / Project 自动分流：明显非项目短问走 `Codex CLI (Quick)`，使用临时目录 + `--ignore-rules --ephemeral` 真实调用 Codex，不写项目 `cli_session_id`；代码、文件、仓库、运行、测试等项目任务继续走 `Codex CLI (Direct)`，保留项目 cwd、真实 `thread_id` resume 与审计。
+- **Commit** `9416bd5` — `fix(codex): split quick ask from project execution`
+- **验证** 定向 `python -m uv run pytest tests/test_agent_routing_smoke.py tests/test_claude_hybrid_output_parser.py tests/test_ws_hybrid_execution.py` 35 passed / 1 warning；后端全量 `python -m uv run pytest` 640 passed / 9 skipped / 1 warning。手工直接 Quick 同形态命令本次约 23.95s、`input_tokens=10084`，比项目路径减少上下文但仍受 `codex exec` headless 启动/模型耗时影响。
+- **下次优先** 若用户仍认为短问不可接受，停止继续挤 `codex exec`，转入 Codex 交互/常驻路径（`exec-server` / `app-server` / interactive PTY）评估。
+
 ## 2026-07-05 会话（Codex plain chat 直接 subprocess）
 
 - **原因** 用户指出短问不应走“本地假回复”绕过模型，核心问题是 Clutch 调 Codex 的真实链路比原生 Codex CLI 慢太多；上一轮已撤回身份短问 fast path。
@@ -175,3 +183,4 @@
 ## 2026-06-29 会话 23（OSR-12 · v1.0.0 Release 实跑 ✅）
 
 - Release 资产：`Clutch_1.0.0_aarch64.dmg` · `SHA256SUMS.txt` · 构建修复 `dd9fa20`
+
