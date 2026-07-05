@@ -287,6 +287,9 @@ fn spawn_dev_sidecar(token: &str) -> Result<std::process::Child, String> {
         "127.0.0.1",
         "--port",
         "8124",
+        "--reload",
+        "--reload-dir",
+        "src",
     ])
     .current_dir(&dir)
     .env("CLUTCH_SIDECAR_TOKEN", token)

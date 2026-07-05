@@ -8,7 +8,7 @@ Rust 宿主层职责：
 
 ## 开发态
 
-`pnpm tauri dev` 自动用 `uv run uvicorn` 拉起 `services/orchestrator`（需本机安装 uv）。
+`pnpm tauri dev` 自动用 `uv run uvicorn --reload` 拉起 `services/orchestrator`（需本机安装 uv），开发模式下修改 Python sidecar 代码会自动重载。
 
 ## 发布打包
 
