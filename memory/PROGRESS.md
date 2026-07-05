@@ -28,6 +28,13 @@
 
 ## Recent Sessions
 
+## 2026-07-05 会话（CLI 身份短问本地 fast path）
+
+- **原因** Codex CLI 新会话首轮没有可 resume 的 thread id，仍需启动 `codex exec --json`；用户实测 `@Codex CLI 你叫什么` 在 Clutch 内约 18.4s，而终端交互 Codex 新会话约 4s。最新 raw output 显示 Clutch 首轮 Codex 输入约 `10680` tokens，且 hybrid shell 创建约 3s。
+- **修复** 对 CLI Agent 的身份/模型短问（如“你叫什么”“你是谁”“你的模型是什么”）在 Sidecar 本地根据 Agent 元数据直接回复，不启动底层 CLI；其他代码、文件、任务类请求仍走原 CLI 路由。
+- **Commit** `7fb2884` — `fix(chat): answer cli identity prompts locally`
+- **验证** `python -m uv run pytest tests/test_ws_message_log.py tests/test_claude_hybrid_output_parser.py tests/test_agent_routing_smoke.py tests/test_ws_hybrid_execution.py` 37 passed / 1 warning。
+
 ## 2026-07-05 会话（Codex CLI 原生 resume 优化）
 
 - **原因** `codex-cli` plain chat 之前每轮都执行新的 `codex exec --json`，并把 system prompt + 历史对话重放给 Codex；用户实测同样短问在 Codex CLI 原生会话约 10s，在 Clutch 内约 17.5s。
