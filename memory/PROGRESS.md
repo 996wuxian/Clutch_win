@@ -28,6 +28,13 @@
 
 ## Recent Sessions
 
+## 2026-07-05 会话（开发态 Sidecar 自动重载）
+
+- **原因** `pnpm tauri:dev` 下前端 Vite 会 HMR，但 debug sidecar 由 Rust 直接启动 `uvicorn` 且未带 `--reload`，修改 Python 后端代码后必须重启 Tauri 才会生效。
+- **修复** debug sidecar 启动参数改为 `uv run uvicorn src.main:app --host 127.0.0.1 --port 8124 --reload --reload-dir src`，仅影响开发态；release PyInstaller sidecar 不变。
+- **Commit** `c808786` — `fix(dev): reload sidecar on python changes`
+- **验证** `cargo check --no-default-features` 通过。
+
 ## 2026-07-05 会话（AI 回复耗时显示）
 
 - **分支** `clutch_win_wuxian` 个人主用产品分支继续改进日常使用可观测性。

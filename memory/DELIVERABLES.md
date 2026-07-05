@@ -30,6 +30,15 @@ _（当前无进行中代码 Task。）_
 
 ## Recently Completed
 
+### 开发态 Sidecar 自动重载 ✅
+- **日期：** 2026-07-05
+- **Commit：** `c808786` — `fix(dev): reload sidecar on python changes`
+- **Verification：** `cargo check --no-default-features` → passed
+- **证据：** `—`
+- **交付文件：**
+  - `apps/desktop/src-tauri/src/lib.rs` — debug sidecar 启动参数增加 `--reload --reload-dir src`
+  - `apps/desktop/src-tauri/README.md` — 同步开发态 sidecar 自动重载说明
+
 ### AI 回复耗时显示 ✅
 - **日期：** 2026-07-05
 - **Commit：** `3206f8e` — `feat(chat): show assistant reply elapsed time`
